@@ -24,10 +24,10 @@ from scipy.misc import imshow
 from tflearn.data_augmentation import ImageAugmentation
 
 import tflearn.datasets.oxflower17 as oxflower17
-X, Y = oxflower17.load_data(one_hot=True, resize_pics=(170, 170))
+X, Y = oxflower17.load_data(one_hot=True, resize_pics=(150, 150))
 X=X.reshape([X.shape[0], -1])
 X=(X-np.mean(X, axis=0))/(np.std(X, axis=0)+1e-6)
-X=X.reshape([X.shape[0], 170, 170, 3])
+X=X.reshape([X.shape[0], 150, 150, 3])
 img_aug = ImageAugmentation()
 img_aug.add_random_rotation(max_angle=33.)
 #X=np.mean(X, axis=3)
@@ -39,8 +39,8 @@ img_aug.add_random_rotation(max_angle=33.)
 #X=X.reshape([X.shape[0], 10, 10, 1])
 
 # Building 'AlexNet'
-network = input_data(shape=[None, 170, 170, 3], data_augmentation=img_aug)
-network = conv_2d(network, 100, 11, strides=4, weights_init='normal', trainable=False)
+network = input_data(shape=[None, 150, 150, 3], data_augmentation=img_aug)
+network = conv_2d(network, 96, 11, strides=4, weights_init='normal', trainable=False)
 network = max_pool_2d(network, 3, strides=2)
 network = local_response_normalization(network)
 network = conv_2d(network, 256, 5, activation='relu')
