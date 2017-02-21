@@ -1,2 +1,2 @@
 # CSDL
-Compressed Deep Learning - combinging compressed sensing and deep learning
+Compressed Deep Learning - combining compressed sensing and deep learning
