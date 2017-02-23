@@ -49,84 +49,73 @@ def LCA(y, iters, batch_sz, num_dict_features=None, D=None):
     D=D+tf.matmul((batch-tf.matmul(D, a)), tf.transpose(a))
   return sess.run(D), sess.run(a)
 
-def visualize_dict(D, k, patch_shape, resize):
-  d=np.zeros(np.sqrt(k)*patch_shape[0],
-             np.sqrt(k)*patch_shape[1], 
-             patch_shape[2])
-  for row in range(np.sqrt(k)):
-    for col in range(np.sqrt(k)):
-      resized_patch=np.reshape(D[:, row*np.sqrt(k)+col], patch_shape)
-      d[row*patch_shape[0]:row*patch_shape[0]+patch_shape[1],
-        col*patch_shape[1]:col*patch_shape[1]+patch_shape[1],
-        :] = resized_patch
+
+def visualize_dict(D, d_shape, patch_shape):
+  vis_d=np.zeros([d_shape[0]*patch_shape[0], d_shape[1]*patch_shape[1]])
+  for row in range(d_shape[0]):
+    for col in range(d_shape[1]):
+      resized_patch=np.reshape(D[:, row*d_shape[1]+col], [patch_shape[0], patch_shape[1]])
+      vis_d[row*patch_shape[0]:row*patch_shape[0]+patch_shape[0], 
+            col*patch_shape[1]:col*patch_shape[1]+patch_shape[1]]=resized_patch
+  imshow(vis_d)
 
 
-ps=25  # size of one patch dimension
-imsz=100  # size to reshape images to
-k=625 # number of patches in dictionary
+ps=[36, 18]  # size of the images
+measurements=300
+k=400 # number of patches in dictionary
 
 # read images from file and resize
-car_imgs=read_ims('/home/mpcr/Documents/MT/CSDL/photos/cars', imsz)
-fruit_imgs=read_ims('/home/mpcr/Documents/MT/CSDL/photos/fruit', imsz)
+data=loadmat('ped_images.mat')
+absent=data['C1']
+present=data['C2']
 
-# average the color channels to get grayscale
-car_imgs=np.mean(car_imgs, axis=3)
-fruit_imgs=np.mean(fruit_imgs, axis=3)
+# reshape into vectors and divide for training and testing
+absent_train=absent[:900, :, :].reshape([900, -1])
+present_train=present[:900, :, :].reshape([900, -1])
+absent_test=absent[900:, :, :].reshape([100, -1])
+present_test=present[900:, :, :].reshape([100, -1])
 
-# get 15x15 patches from each image
-car_patches=view_as_windows(car_imgs, (1, ps, ps))
-fruit_patches=view_as_windows(fruit_imgs, (1, ps, ps))
-
-# reshape into vectors
-car_patches=car_patches.reshape([car_patches.shape[0]*
-				 car_patches.shape[1]*
-				 car_patches.shape[2]*
-				 car_patches.shape[3], -1])
-
-fruit_patches=fruit_patches.reshape([fruit_patches.shape[0]*
-				 fruit_patches.shape[1]*
-				 fruit_patches.shape[2]*
-				 fruit_patches.shape[3], -1])
-
-car_patches=normalize(np.transpose(car_patches))
-fruit_patches=normalize(np.transpose(fruit_patches))
+# normalize data
+absent_train=normalize(np.transpose(absent_train))
+present_train=normalize(np.transpose(present_train))
+absent_test=normalize(np.transpose(absent_test))
+present_test=normalize(np.transpose(present_test))
 
 # random matrix for compressive sampling
-rd=np.sign(np.random.randn(100, ps**2)/10.0)
+rd=np.sign(np.random.randn(measurements, ps[0]*ps[1])/10.0)
 
 # take compressed measurements with random matrix
-car_ms=np.matmul(rd, car_patches)
-fruit_ms=np.matmul(rd, fruit_patches)
+absent_train=np.matmul(rd, absent_train)
+present_train=np.matmul(rd, present_train)
+absent_test=np.matmul(rd, absent_test)
+present_test=np.matmul(rd, present_test)
 
 
 with tf.Session() as sess:
   
   # learn fruit dictionary
-  fruit_dict, fruit_alpha=LCA(fruit_ms, 200, 65, num_dict_features=k)
-  #fruit_dict=np.matmul(np.transpose(rd), fruit_dict)
+  absent_dict, absent_alpha=LCA(absent_train, 200, 75, num_dict_features=k)
+  
+  
 
   # learn car dictionary
-  car_dict, car_alpha=LCA(car_ms, 200, 65, num_dict_features=k)
-  #car_dict=np.matmul(np.transpose(rd), car_dict)
+  present_dict, present_alpha=LCA(present_train, 200, 75, num_dict_features=k)
+  present_dict=np.matmul(np.transpose(rd), present_dict)
+  visualize_dict(present_dict, [20, 20], [36, 18])
 
-  #################test new photo of car#################################
-  test_im=imread('apple.jpeg')
-  test_im=imresize(test_im, [imsz, imsz])
-  test_im=np.mean(test_im, axis=2)
-  test_patches=view_as_windows(test_im, (ps, ps))
-  test_patches=np.transpose(test_patches.reshape([test_patches.shape[0]*
-                                                  test_patches.shape[1], -1]))
+
+  ##############################test new images#################################
   
-  test_patches=normalize(test_patches)
-  test_meas=np.matmul(rd, test_patches)
+  present_dict, present_alpha=LCA(present_test, 1, present_test.shape[1], D=absent_dict)
+  present_dict2, present_alpha2=LCA(present_test, 1, present_test.shape[1], D=present_dict)
 
-  test_dict1, test_alpha1=LCA(test_meas, 1, test_meas.shape[1], D=fruit_dict)
-  test_dict2, test_alpha2=LCA(test_meas, 1, test_meas.shape[1], D=car_dict)
+  
 
-  test_norm1=np.sum(test_alpha1)
-  test_norm2=np.sum(test_alpha2)
 
-  print('fruit norm: %f, car norm: %f'%(test_norm1, test_norm2))
+
+
+
+
 
   
   
