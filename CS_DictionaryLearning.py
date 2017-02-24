@@ -7,21 +7,7 @@ from skimage.util import view_as_windows
 from scipy.io import loadmat
 import functools
 from wraps import doublewrap, define_scope
-
-
-def read_ims(directory, imsz):
-  d=os.getcwd()
-  os.chdir(directory)
-  num_ims=len(glob.glob1(os.getcwd(), '*'))
-  imgs=np.zeros([num_ims, imsz, imsz, 3])
-  im_num=0
-  for filename in os.listdir(os.getcwd()):
-    print(filename)
-    im=imresize(imread(filename), [imsz, imsz])
-    imgs[im_num, :, :, :]=im
-    im_num+=1
-  os.chdir(d)
-  return imgs
+from image_reader import read_ims
 
 
 def normalize(data):
@@ -98,58 +84,52 @@ class ELM(object):
 
 
 
+ps=12  # size of the images
+measurements=300 # number of compressed measurements to take
+k=441 # number of patches in dictionary
 
-ps=[36, 18]  # size of the images
-measurements=300
-k=400 # number of patches in dictionary
 
 # read images from file and resize
-data=loadmat('ped_images.mat')
-absent=data['C1']
-present=data['C2']
+if os.path.isfile('oxford_flower_NHWC.npy')==False:
+  data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', 200)
 
-# reshape into vectors and divide for training and testing
-absent_train=absent[:1500, :, :].reshape([1500, -1])
-present_train=present[:1500, :, :].reshape([1500, -1])
-train_data=np.concatenate((absent_train, present_train), axis=0)
-absent_test=absent[1500:, :, :].reshape([3300, -1])
-present_test=present[1500:, :, :].reshape([3300, -1])
+else:
+  data=np.load('oxford_flower_NHWC.npy')
+  labels=np.load('oxford_flower_labels.npy')
+
+np.save('oxford_flower_NHWC.npy', data)
+np.save('oxford_flower_labels.npy', labels)
+
+# get patches to learn dictionary from
+random=np.int32(np.floor(np.random.rand(70)*data.shape[0]))
+patches=view_as_windows(data[random, :, :, :], (1, ps, ps, 3))
+
+# reshape into vectors
+patches=np.transpose(patches.reshape([patches.shape[0]*
+			              patches.shape[1]*
+			              patches.shape[2]*
+			              patches.shape[3], -1]))
 
 # normalize data
-train_data=normalize(np.transpose(train_data))
-absent_test=normalize(np.transpose(absent_test))
-present_test=normalize(np.transpose(present_test))
+patches=normalize(patches)
 
 # random matrix for compressive sampling
-rd=np.sign(np.random.randn(measurements, ps[0]*ps[1])/10.0)
+rd=np.sign(np.random.randn(measurements, 3*ps**2)/10.0)
 
 # take compressed measurements with random matrix
-train_data=np.matmul(rd, train_data)
-absent_test=np.matmul(rd, absent_test)
-present_test=np.matmul(rd, present_test)
+patches=np.matmul(rd, patches)
 
 
 with tf.Session() as sess:
   
   # learn dictionary
   print('Learning features of the data...')
-  dict_, alpha_=LCA(train_data, 300, 75, num_dict_features=k)
+  dict_, alpha_=LCA(patches, 300, 75, num_dict_features=k)
 
 
 ##############################test new images#######################################
 
-  batch_sz=200
-  
-  present_testd, present_testa=LCA(present_test, 1, present_test.shape[1], D=dict_)
-  absent_testa, absent_testa=LCA(absent_test, 1, present_test.shape[1], D=dict_)
-  elm_data=np.concatenate((present_testa.transpose(), absent_testa.transpose()), axis=0)
-  elm_labels=np.concatenate((np.ones([3300, ]), np.zeros([3300, ])), axis=0)
-
-  r=np.int32(np.floor(np.random.rand(6600)*6600))
-  elm_testd=elm_data[r[6300:], :]
-  elm_testl=elm_labels[r[6300:]]
-  elm_data=elm_data[r[:6300], :]
-  elm_labels=elm_labels[r[:6300]]
+  batch_sz=45
 
   x=tf.placeholder(dtype=tf.float32, shape=[None, k])
   y=tf.placeholder(dtype=tf.float32, shape=[None, ])
@@ -158,13 +138,23 @@ with tf.Session() as sess:
   
   sess.run(tf.global_variables_initializer())
   a=0
+  X=np.zeros([batch_sz, 3*ps**2*(imsz-ps)**2])
   for i in range(100000):
-    r=np.int32(np.floor(np.random.rand(batch_sz)*elm_data.shape[1]))
-    sess.run(elm.optimize, {x: elm_data[r, :], y: elm_labels[r]})
-    acc=sess.run(elm.accuracy, {x:elm_data[r, :], y: elm_labels[r]})
+    r=np.int32(np.floor(np.random.rand(batch_sz)*data.shape[0]))
+    batch=view_as_windows(data[r, :, :, :], (1, ps, ps, 3))
+    batch=np.transpose(batch.reshape([batch.shape[0]*
+		                      batch.shape[1]*
+			 	      batch.shape[2]*
+			 	      batch.shape[3], -1]))
+    
+    batch=LCA(batch, 1, batch_sz, D=dict_)
+    for j in range(batch_sz):
+      X[j, :]=batch[:, j*(imsz-ps)**2:j*((imsz-ps)**2)+(imsz-ps)**2].flatten()
+    sess.run(elm.optimize, {x: X, y: labels[r]})
+    acc=sess.run(elm.accuracy, {x: X, y: labels[r]})
     print('Iteration: %d   acc: %f\r'%(i, acc))
-    if i%100 == 0:
-      print('val_acc: %f'%(sess.run(elm.accuracy, {x: elm_testd, y: elm_testl})))
+    #if i%100 == 0:
+    #  print('val_acc: %f'%(sess.run(elm.accuracy, {x: elm_testd, y: elm_testl})))
 
 
 
