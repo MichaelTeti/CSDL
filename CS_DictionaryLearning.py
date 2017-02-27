@@ -10,6 +10,11 @@ from wraps import doublewrap, define_scope
 from image_reader import read_ims
 
 
+imsz=150
+ps=12  # size of the images
+measurements=300 # number of compressed measurements to take
+k=441 # number of patches in dictionary
+
 def normalize(data):
   return (data-np.mean(data, axis=0))/(np.std(data, axis=0)+1e-6)
 
@@ -68,7 +73,7 @@ class ELM(object):
 
   @define_scope(initializer=tf.contrib.slim.xavier_initializer())
   def prediction(self):
-    #net=tf.matmul(self.X, tf.random_normal([lfjsdl;jfl;sjdfjsdjsfakj], dtype=tf.float32))
+    net=tf.matmul(self.X, tf.random_normal([8227008, 8227008/2], dtype=tf.float32))
     net=tf.nn.relu(net+tf.Variable(tf.constant(0.1)))
     net=tf.matmul(net, tf.Variable(tf.truncated_normal([200, 1], dtype=tf.float32)))
     return tf.nn.sigmoid(net+tf.Variable(tf.constant(0.1, shape=[1, ])))
@@ -83,16 +88,12 @@ class ELM(object):
    return tf.reduce_mean(tf.cast(tf.equal(tf.round(self.prediction), self.Y), tf.float32))
 
 
-imsz=200
-ps=12  # size of the images
-measurements=300 # number of compressed measurements to take
-k=441 # number of patches in dictionary
-
-
 # read images from file and resize if not saved already
+print('Loading Data...')
 data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
 
 # get patches to learn dictionary from
+print('extracting patches for unsupervised learning...')
 random=np.int32(np.floor(np.random.rand(70)*data.shape[0]))
 patches=view_as_windows(data[random, :, :, :], (1, ps, ps, 3))
 
@@ -103,6 +104,7 @@ patches=np.transpose(patches.reshape([patches.shape[0]*
 			              patches.shape[3], -1]))
 
 # normalize data
+print('normalizing data and taking compressed measurements...')
 patches=normalize(patches)
 
 # random matrix for compressive sampling
@@ -125,12 +127,14 @@ with tf.Session() as sess:
 
   x=tf.placeholder(dtype=tf.float32, shape=[None, 3*ps**2*(imsz-ps)**2])
   y=tf.placeholder(dtype=tf.float32, shape=[None, ])
-
+  print(x)
+  
   elm=ELM(x, y)
   
   sess.run(tf.global_variables_initializer())
   a=0
   X=np.zeros([batch_sz, 3*ps**2*(imsz-ps)**2])
+
   for i in range(100000):
     r=np.int32(np.floor(np.random.rand(batch_sz)*data.shape[0]))
     batch=view_as_windows(data[r, :, :, :], (1, ps, ps, 3))
