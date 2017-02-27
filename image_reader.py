@@ -23,4 +23,6 @@ def read_ims(directory, imsz):
       imgs[r0, :, :, :]=im
     os.chdir(directory)
   os.chdir(main_dir)
+  assert(imgs.shape[0]==labels.shape[0]), "labels and data must have same number of examples"
+  assert(np.mean(np.sum(labels, axis=1))==1), "one hot vectors created wrong"
   return imgs, labels

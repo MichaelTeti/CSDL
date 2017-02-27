@@ -68,7 +68,7 @@ class ELM(object):
 
   @define_scope(initializer=tf.contrib.slim.xavier_initializer())
   def prediction(self):
-    net=tf.matmul(self.X, tf.random_normal([lfjsdl;jfl;sjdfjsdjsfakj], dtype=tf.float32))
+    #net=tf.matmul(self.X, tf.random_normal([lfjsdl;jfl;sjdfjsdjsfakj], dtype=tf.float32))
     net=tf.nn.relu(net+tf.Variable(tf.constant(0.1)))
     net=tf.matmul(net, tf.Variable(tf.truncated_normal([200, 1], dtype=tf.float32)))
     return tf.nn.sigmoid(net+tf.Variable(tf.constant(0.1, shape=[1, ])))
@@ -90,11 +90,7 @@ k=441 # number of patches in dictionary
 
 
 # read images from file and resize if not saved already
-try:
-  data=np.load('oxford_flower_NHWC.npy')
-  labels=np.load('oxford_flower_labels.npy')
-except IOError:
-  data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
+data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
 
 # get patches to learn dictionary from
 random=np.int32(np.floor(np.random.rand(70)*data.shape[0]))
