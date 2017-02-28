@@ -2,18 +2,19 @@ import tensorflow as tf
 import numpy as np
 from scipy.misc import *
 import os
-import glob
 from skimage.util import view_as_windows
-from scipy.io import loadmat
-import functools
-from wraps import doublewrap, define_scope
 from image_reader import read_ims
+import h5py
+import sys
+import pickle
 
 
 imsz=140
 ps=12  # size of the images
-measurements=300 # number of compressed measurements to take
-k=432 # number of patches in dictionary
+measurements=324 # number of compressed measurements to take
+k=324 # number of patches in dictionary
+rd=np.sign(np.random.randn(measurements, 3*ps**2))
+
 
 def normalize(data):
   return (data-np.mean(data, axis=0))/(np.std(data, axis=0)+1e-6)
@@ -44,127 +45,101 @@ def LCA(y, iters, batch_sz, num_dict_features=None, D=None):
 
 
 def visualize_dict(D, d_shape, patch_shape):
-  vis_d=np.zeros([d_shape[0]*patch_shape[0], d_shape[1]*patch_shape[1]])
+  if np.size(d_shape)==2:
+    vis_d=np.zeros([d_shape[0]*patch_shape[0], d_shape[1]*patch_shape[1], 1])
+    resize_shp=[patch_shape[0], patch_shape[1]]
+  else:
+    vis_d=np.zeros([d_shape[0]*patch_shape[0], d_shape[1]*patch_shape[1], 3])
+    resize_shp=[patch_shape[0], patch_shape[1], 3]
+
   for row in range(d_shape[0]):
     for col in range(d_shape[1]):
-      resized_patch=np.reshape(D[:, row*d_shape[1]+col], [patch_shape[0], patch_shape[1]])
+      resized_patch=np.reshape(D[:, row*d_shape[1]+col], resize_shp)
       vis_d[row*patch_shape[0]:row*patch_shape[0]+patch_shape[0], 
-            col*patch_shape[1]:col*patch_shape[1]+patch_shape[1]]=resized_patch
+            col*patch_shape[1]:col*patch_shape[1]+patch_shape[1], :]=resized_patch
   imshow(vis_d)
-
-
-
-
-class ELM(object):
-  '''Single, fully-connected hidden layer extreme learning machine.
-     
-     Args: 
-          input_data: training examples with shape n x num_features.
-          input_labels: n-dimensional one-hot vector. '''
-  
-  def __init__(self, data, labels):
-    
-    shp=data.get_shape()
-    self.features=int(shp[1])
-    self.X=data
-    self.Y=labels
-    self.batch_sz=batch_sz
-    self.prediction
-    self.optimize
-    self.accuracy
-
-  @define_scope(initializer=tf.contrib.slim.xavier_initializer())
-  def prediction(self):
-    net=tf.matmul(self.X, tf.random_normal([self.features, self.features/2], dtype=tf.float32))
-    net=tf.nn.relu(net+tf.Variable(tf.constant(0.1)))
-    net=tf.matmul(net, tf.Variable(tf.truncated_normal([self.features/2, 17], dtype=tf.float32)))
-    return tf.nn.sigmoid(net+tf.Variable(tf.constant(0.1, shape=[1, ])))
-
-  @define_scope
-  def optimize(self):
-    cost=tf.reduce_sum((self.Y-self.prediction)**2, reduction_indices=0)
-    return tf.train.AdamOptimizer(1e-4).minimize(cost)  
- 
-  @define_scope
-  def accuracy(self):
-   equal=tf.equal(tf.argmax(self.prediction, axis=1), tf.argmax(self.Y, axis=1))
-   return tf.reduce_mean(tf.to_float(equal))
 
 
 # read images from file and resize if not saved already
 print('Loading Data...')
-data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
 
-# get patches to learn dictionary from
-print('extracting patches for unsupervised learning...')
-random=np.int32(np.floor(np.random.rand(70)*data.shape[0]))
-patches=view_as_windows(data[random, :, :, :], (1, ps, ps, 3))
+try:
+  f=h5py.File('flower_data.h5','a')
+  data=f['data']
+  labels=f['labels']
+except IOError:
+  data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
 
-# reshape into vectors
-patches=np.transpose(patches.reshape([patches.shape[0]*
-			              patches.shape[1]*
-			              patches.shape[2]*
-			              patches.shape[3], -1]))
 
-# normalize data
-print('normalizing data and taking compressed measurements...')
-patches=normalize(patches)
-
-# random matrix for compressive sampling
-rd=np.sign(np.random.randn(measurements, 3*ps**2)/10.0)
-
-# take compressed measurements with random matrix
-patches=np.matmul(rd, patches)
-
+num_classes=labels.shape[1]
 
 with tf.Session() as sess:
+
+  try:
+    with open('flower_dicts.pickle', 'rb') as handle:
+      d = pickle.load(handle)
+  except IOError:
+    d={}
+
+    for i in range(num_classes):
   
-  # learn dictionary
-  print('Learning features of the data...')
-  dict_, alpha_=LCA(patches, 300, 75, num_dict_features=k)
+      sys.stdout.write("Learning Dictionary %d / %d   \r" % (i+1, num_classes) )
+      sys.stdout.flush()
 
+      patches=view_as_windows(data[i*80:i*80+20, :, :, :], (1, ps, ps, 3))
 
-##############################test new images#######################################
+      patches=np.transpose(patches.reshape([patches.shape[0]*
+				            patches.shape[1]*
+					    patches.shape[2]*
+				 	    patches.shape[3]*
+					    patches.shape[4], -1]))
 
-  batch_sz=45
-
-  x=tf.placeholder(dtype=tf.float32, shape=[None, measurements*(imsz-ps)**2])
-  y=tf.placeholder(dtype=tf.float32, shape=[None, ])
-  
-  elm=ELM(x, y)
-  
-  sess.run(tf.global_variables_initializer())
-
-  a=0
-
-
-  for _ in range(100000):
-    r=np.int32(np.floor(np.random.rand(batch_sz)*data.shape[0]))
-    batch=view_as_windows(data[r, :, :, :], (1, ps, ps, 3))
-    batch=np.transpose(batch.reshape([batch.shape[0]*
-		                      batch.shape[1]*
-			 	      batch.shape[2]*
-			 	      batch.shape[3], -1]))
-   
-    
-    batch=np.matmul(rd, batch)   
+      patches=normalize(patches)
  
-    test_dict, test_alpha=LCA(batch, 1, batch_sz, D=dict_)
+      patches=np.matmul(rd, patches)
 
-    interval=measurements*(imsz-ps)**2 
+      dict_, alpha_=LCA(patches, 300, 300, num_dict_features=k)
 
-    X=np.zeros([batch_sz, measurements*(imsz-ps)**2])
+      d['dict{0}'.format(i)]=dict_
+
+    with open('flower_dicts.pickle', 'wb') as handle:
+      pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
+  
+
+################################ test new images #######################################
    
-    for j in range(batch_sz):
-      test_vec=test_alpha[:, j*interval:j*interval+interval].flatten()
-      X[j, :]=test_vec
-    sess.run(elm.optimize, {x: X, y: labels[r]})
-    acc=sess.run(elm.accuracy, {x: X, y: labels[r]})
-    print('Iteration: %d   acc: %f\r'%(i, acc))
-    #if i%100 == 0:
-    #  print('val_acc: %f'%(sess.run(elm.accuracy, {x: elm_testd, y: elm_testl})))
+  c1_test=data[data.shape[0]-60:, :, :, :]
+ 
+  ans=np.zeros([c1_test.shape[0]])
+   
+  for i in range(c1_test.shape[0]):
+
+    sys.stdout.write("Test Image %d        \r" % (i+1) )
+    sys.stdout.flush()
+
+    patches=view_as_windows(c1_test[i, :, :, :], (ps, ps, 3))
+  
+    patches=np.transpose(patches.reshape([patches.shape[0]*
+	                                  patches.shape[1]*
+	                                  patches.shape[2], -1]))
 
 
+    patches=np.matmul(rd, normalize(patches[:, np.int32(np.random.rand(1000)*patches.shape[1])]))
+
+    ans1=np.zeros([num_classes])
+
+    for j in range(num_classes):
+      
+      testd=d['dict{0}'.format(j)]
+  
+      c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
+
+      ans1[j]=np.sum(np.absolute(np.matmul(testd, c17ta)-patches))
+    r0=np.where(ans1==np.amin(ans1))
+    ans[i]=r0[0]
 
 
+  correct=np.sum([float(x==16) for x in ans])
 
+
+  print('Percent Correct: %f'%(np.mean(correct)))
