@@ -10,10 +10,10 @@ from wraps import doublewrap, define_scope
 from image_reader import read_ims
 
 
-imsz=150
+imsz=140
 ps=12  # size of the images
 measurements=300 # number of compressed measurements to take
-k=441 # number of patches in dictionary
+k=432 # number of patches in dictionary
 
 def normalize(data):
   return (data-np.mean(data, axis=0))/(np.std(data, axis=0)+1e-6)
@@ -31,7 +31,7 @@ def LCA(y, iters, batch_sz, num_dict_features=None, D=None):
            D: The dictionary to be used in the network. 
   '''
   assert(num_dict_features is None or D is None), 'provide D or num_dict_features, not both'
-  if num_dict_features is not None:
+  if D is None:
     D=np.random.randn(y.shape[0], num_dict_features)
   for i in range(iters):
     batch=y[:, np.int32(np.floor(np.random.rand(batch_sz)*y.shape[1]))]
@@ -64,6 +64,8 @@ class ELM(object):
   
   def __init__(self, data, labels):
     
+    shp=data.get_shape()
+    self.features=int(shp[1])
     self.X=data
     self.Y=labels
     self.batch_sz=batch_sz
@@ -73,9 +75,9 @@ class ELM(object):
 
   @define_scope(initializer=tf.contrib.slim.xavier_initializer())
   def prediction(self):
-    net=tf.matmul(self.X, tf.random_normal([8227008, 8227008/2], dtype=tf.float32))
+    net=tf.matmul(self.X, tf.random_normal([self.features, self.features/2], dtype=tf.float32))
     net=tf.nn.relu(net+tf.Variable(tf.constant(0.1)))
-    net=tf.matmul(net, tf.Variable(tf.truncated_normal([200, 1], dtype=tf.float32)))
+    net=tf.matmul(net, tf.Variable(tf.truncated_normal([self.features/2, 17], dtype=tf.float32)))
     return tf.nn.sigmoid(net+tf.Variable(tf.constant(0.1, shape=[1, ])))
 
   @define_scope
@@ -85,7 +87,8 @@ class ELM(object):
  
   @define_scope
   def accuracy(self):
-   return tf.reduce_mean(tf.cast(tf.equal(tf.round(self.prediction), self.Y), tf.float32))
+   equal=tf.equal(tf.argmax(self.prediction, axis=1), tf.argmax(self.Y, axis=1))
+   return tf.reduce_mean(tf.to_float(equal))
 
 
 # read images from file and resize if not saved already
@@ -125,27 +128,36 @@ with tf.Session() as sess:
 
   batch_sz=45
 
-  x=tf.placeholder(dtype=tf.float32, shape=[None, 3*ps**2*(imsz-ps)**2])
+  x=tf.placeholder(dtype=tf.float32, shape=[None, measurements*(imsz-ps)**2])
   y=tf.placeholder(dtype=tf.float32, shape=[None, ])
-  print(x)
   
   elm=ELM(x, y)
   
   sess.run(tf.global_variables_initializer())
-  a=0
-  X=np.zeros([batch_sz, 3*ps**2*(imsz-ps)**2])
 
-  for i in range(100000):
+  a=0
+
+
+  for _ in range(100000):
     r=np.int32(np.floor(np.random.rand(batch_sz)*data.shape[0]))
     batch=view_as_windows(data[r, :, :, :], (1, ps, ps, 3))
     batch=np.transpose(batch.reshape([batch.shape[0]*
 		                      batch.shape[1]*
 			 	      batch.shape[2]*
 			 	      batch.shape[3], -1]))
+   
     
-    batch=LCA(batch, 1, batch_sz, D=dict_)
+    batch=np.matmul(rd, batch)   
+ 
+    test_dict, test_alpha=LCA(batch, 1, batch_sz, D=dict_)
+
+    interval=measurements*(imsz-ps)**2 
+
+    X=np.zeros([batch_sz, measurements*(imsz-ps)**2])
+   
     for j in range(batch_sz):
-      X[j, :]=batch[:, j*(imsz-ps)**2:j*((imsz-ps)**2)+(imsz-ps)**2].flatten()
+      test_vec=test_alpha[:, j*interval:j*interval+interval].flatten()
+      X[j, :]=test_vec
     sess.run(elm.optimize, {x: X, y: labels[r]})
     acc=sess.run(elm.accuracy, {x: X, y: labels[r]})
     print('Iteration: %d   acc: %f\r'%(i, acc))
