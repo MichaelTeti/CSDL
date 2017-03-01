@@ -3,7 +3,7 @@ import numpy as np
 from scipy.misc import *
 import os
 from skimage.util import view_as_windows
-from image_reader import read_ims
+from image_reader import *
 import h5py
 import sys
 import pickle
@@ -12,7 +12,7 @@ import pickle
 imsz=140
 ps=12  # size of the images
 measurements=289 # number of compressed measurements to take
-k=289 # number of patches in dictionary
+k=400 # number of patches in dictionary
 rd=np.sign(np.random.randn(measurements, 3*ps**2))
 
 
@@ -42,22 +42,6 @@ def LCA(y, iters, batch_sz, num_dict_features=None, D=None):
     a=0.3*a**3
     D=D+tf.matmul((batch-tf.matmul(D, a)), tf.transpose(a))
   return sess.run(D), sess.run(a)
-
-
-def visualize_dict(D, d_shape, patch_shape):
-  if np.size(d_shape)==2:
-    vis_d=np.zeros([d_shape[0]*patch_shape[0], d_shape[1]*patch_shape[1], 1])
-    resize_shp=[patch_shape[0], patch_shape[1]]
-  else:
-    vis_d=np.zeros([d_shape[0]*patch_shape[0], d_shape[1]*patch_shape[1], 3])
-    resize_shp=[patch_shape[0], patch_shape[1], 3]
-
-  for row in range(d_shape[0]):
-    for col in range(d_shape[1]):
-      resized_patch=np.reshape(D[:, row*d_shape[1]+col], resize_shp)
-      vis_d[row*patch_shape[0]:row*patch_shape[0]+patch_shape[0], 
-            col*patch_shape[1]:col*patch_shape[1]+patch_shape[1], :]=resized_patch
-  imshow(vis_d)
 
 
 # read images from file and resize if not saved already
@@ -93,11 +77,13 @@ with tf.Session() as sess:
  
       patches=np.matmul(rd, patches)
 
-      dict_, alpha_=LCA(patches, 300, 300, num_dict_features=k)
+      dict_, alpha_=LCA(patches, 300, 100, num_dict_features=k)
 
       d['dict{0}'.format(i)]=dict_
+
+      dict_proj=np.matmul(rd.transpose(), dict_)
   
-      visualize_dict(np.matmul(rd.transpose(), dict_), d_shape=[17, 17, 3], patch_shape=[ps, ps])
+      #visualize_dict(dict_proj, d_shape=[17, 17, 3], patch_shape=[ps, ps])
 
     with open('flower_dicts.pickle', 'wb') as handle:
       pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
@@ -106,7 +92,7 @@ with tf.Session() as sess:
 ################################ test new images #######################################
   
 
-  num_classes=3
+  num_classes=4
 
   c1_test=data[20:80, :, :, :]
  
@@ -137,9 +123,10 @@ with tf.Session() as sess:
       ans1[j]=np.sum(np.absolute(np.matmul(testd, c17ta)-patches))
 
     ans[i]=np.argmin(ans1)
-    print(ans)
+  
+  print(ans)
 
-  correct=np.sum([float(x==16) for x in ans])
+  correct=[float(x==y) for (x, y) in zip(ans, np.argmax(labels[20:80], axis=1))]
 
 
   print('Percent Correct: %f'%(np.mean(correct)))

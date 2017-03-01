@@ -44,3 +44,29 @@ def read_ims(directory, imsz, grayscale=False, save=False):
     f.create_dataset('labels', data=labels)
     f.close()
   return imgs, labels
+
+
+
+def visualize_dict(D, d_shape, patch_shape):
+  ''' Displays all sparse dictionary patches in one image.
+      args:
+           D: the sparse dictionary with size patch size x number of patches.
+           d_shape: a list or tuple containing the desired number of patches per 
+                    dimension of the dictionary. For example, a dictionary with
+                    400 patches could be viewed at 20 patches x 20 patches.
+           patch_shape: a list, tuple, or array that specifies the width and height
+                        to reshape each patch to. '''
+
+  if np.size(d_shape)==2:
+    vis_d=np.zeros([d_shape[0]*patch_shape[0], d_shape[1]*patch_shape[1], 1])
+    resize_shp=[patch_shape[0], patch_shape[1]]
+  else:
+    vis_d=np.zeros([d_shape[0]*patch_shape[0], d_shape[1]*patch_shape[1], 3])
+    resize_shp=[patch_shape[0], patch_shape[1], 3]
+
+  for row in range(d_shape[0]):
+    for col in range(d_shape[1]):
+      resized_patch=np.reshape(D[:, row*d_shape[1]+col], resize_shp)
+      vis_d[row*patch_shape[0]:row*patch_shape[0]+patch_shape[0], 
+            col*patch_shape[1]:col*patch_shape[1]+patch_shape[1], :]=resized_patch
+  imshow(vis_d)
