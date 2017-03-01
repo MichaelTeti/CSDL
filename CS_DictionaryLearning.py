@@ -11,8 +11,8 @@ import pickle
 
 imsz=140
 ps=12  # size of the images
-measurements=324 # number of compressed measurements to take
-k=324 # number of patches in dictionary
+measurements=289 # number of compressed measurements to take
+k=289 # number of patches in dictionary
 rd=np.sign(np.random.randn(measurements, 3*ps**2))
 
 
@@ -25,7 +25,7 @@ def LCA(y, iters, batch_sz, num_dict_features=None, D=None):
       input vector.
 
       Args: 
-           y: input signal or vector
+           y: input signal or vector, or multiple column vectors.
            num_dict_features: number of dictionary patches to learn.
            iters: number of LCA iterations.
            batch_sz: number of samples to send to the network at each iteration.
@@ -63,13 +63,8 @@ def visualize_dict(D, d_shape, patch_shape):
 # read images from file and resize if not saved already
 print('Loading Data...')
 
-try:
-  f=h5py.File('flower_data.h5','a')
-  data=f['data']
-  labels=f['labels']
-except IOError:
-  data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
 
+data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
 
 num_classes=labels.shape[1]
 
@@ -88,33 +83,38 @@ with tf.Session() as sess:
 
       patches=view_as_windows(data[i*80:i*80+20, :, :, :], (1, ps, ps, 3))
 
-      patches=np.transpose(patches.reshape([patches.shape[0]*
-				            patches.shape[1]*
-					    patches.shape[2]*
-				 	    patches.shape[3]*
-					    patches.shape[4], -1]))
+      patches=patches.reshape([patches.shape[0]*
+			       patches.shape[1]*
+			       patches.shape[2]*
+			       patches.shape[3]*
+			       patches.shape[4], -1])
 
-      patches=normalize(patches)
+      patches=normalize(patches.transpose())
  
       patches=np.matmul(rd, patches)
 
       dict_, alpha_=LCA(patches, 300, 300, num_dict_features=k)
 
       d['dict{0}'.format(i)]=dict_
+  
+      visualize_dict(np.matmul(rd.transpose(), dict_), d_shape=[17, 17, 3], patch_shape=[ps, ps])
 
     with open('flower_dicts.pickle', 'wb') as handle:
       pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
   
 
 ################################ test new images #######################################
-   
-  c1_test=data[data.shape[0]-60:, :, :, :]
+  
+
+  num_classes=3
+
+  c1_test=data[20:80, :, :, :]
  
   ans=np.zeros([c1_test.shape[0]])
    
   for i in range(c1_test.shape[0]):
 
-    sys.stdout.write("Test Image %d        \r" % (i+1) )
+    sys.stdout.write("Test Image %d                    \r" % (i+1) )
     sys.stdout.flush()
 
     patches=view_as_windows(c1_test[i, :, :, :], (ps, ps, 3))
@@ -135,9 +135,9 @@ with tf.Session() as sess:
       c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
 
       ans1[j]=np.sum(np.absolute(np.matmul(testd, c17ta)-patches))
-    r0=np.where(ans1==np.amin(ans1))
-    ans[i]=r0[0]
 
+    ans[i]=np.argmin(ans1)
+    print(ans)
 
   correct=np.sum([float(x==16) for x in ans])
 

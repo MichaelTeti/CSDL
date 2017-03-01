@@ -3,7 +3,7 @@ import os
 from scipy.misc import *
 import numpy as np
 
-def read_ims(directory, imsz, grayscale=False):
+def read_ims(directory, imsz, grayscale=False, save=False):
   ''' Reads in images in subdirectories located in directory and 
       assigns a unique one-hot vector to each image in each folder.
       
@@ -38,4 +38,9 @@ def read_ims(directory, imsz, grayscale=False):
       imgs[r0, :, :, :]=im
     os.chdir(directory)
   os.chdir(main_dir)
+  if save is True:
+    f=h5py.File('data_labels.h5', 'a')
+    f.create_dataset('images', data=imgs)
+    f.create_dataset('labels', data=labels)
+    f.close()
   return imgs, labels
