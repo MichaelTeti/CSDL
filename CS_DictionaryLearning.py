@@ -10,10 +10,11 @@ import pickle
 
 
 imsz=140
-ps=12  # size of the images
-measurements=289 # number of compressed measurements to take
+ps=8  # size of the images
+measurements=110 # number of compressed measurements to take
 k=400 # number of patches in dictionary
 rd=np.sign(np.random.randn(measurements, 3*ps**2))
+num_test_pics=60
 
 
 def normalize(data):
@@ -77,30 +78,31 @@ with tf.Session() as sess:
  
       patches=np.matmul(rd, patches)
 
-      dict_, alpha_=LCA(patches, 300, 100, num_dict_features=k)
+      dict_, alpha_=LCA(patches, 300, 300, num_dict_features=k)
 
       d['dict{0}'.format(i)]=dict_
 
-      dict_proj=np.matmul(rd.transpose(), dict_)
+      #dict_proj=np.matmul(rd.transpose(), dict_)
   
-      #visualize_dict(dict_proj, d_shape=[17, 17, 3], patch_shape=[ps, ps])
+      #visualize_dict(dict_proj, d_shape=[20, 20, 3], patch_shape=[ps, ps])
 
     with open('flower_dicts.pickle', 'wb') as handle:
       pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
   
+    sys.exit(0)
 
 ################################ test new images #######################################
   
 
-  num_classes=4
+  num_classes=3
 
-  c1_test=data[20:80, :, :, :]
+  c1_test=data[20:20+num_test_pics, :, :, :]
  
-  ans=np.zeros([c1_test.shape[0]])
+  ans=np.zeros([num_test_pics])
    
-  for i in range(c1_test.shape[0]):
+  for i in range(num_test_pics):
 
-    sys.stdout.write("Test Image %d                    \r" % (i+1) )
+    sys.stdout.write('Test Image %d                    \r' % (i+1) )
     sys.stdout.flush()
 
     patches=view_as_windows(c1_test[i, :, :, :], (ps, ps, 3))
@@ -110,7 +112,9 @@ with tf.Session() as sess:
 	                                  patches.shape[2], -1]))
 
 
-    patches=np.matmul(rd, normalize(patches[:, np.int32(np.random.rand(1000)*patches.shape[1])]))
+    patches=np.matmul(rd, patches[:, np.int32(np.random.rand(10000)*patches.shape[1])])
+
+    patches=normalize(patches)
 
     ans1=np.zeros([num_classes])
 
@@ -120,11 +124,10 @@ with tf.Session() as sess:
   
       c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
 
-      ans1[j]=np.sum(np.absolute(np.matmul(testd, c17ta)-patches))
+      ans1[j]=np.mean(np.absolute(np.matmul(testd, c17ta)-patches))
+      print(ans1)
 
     ans[i]=np.argmin(ans1)
-  
-  print(ans)
 
   correct=[float(x==y) for (x, y) in zip(ans, np.argmax(labels[20:80], axis=1))]
 
