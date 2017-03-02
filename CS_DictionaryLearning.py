@@ -112,7 +112,7 @@ with tf.Session() as sess:
 	                                  patches.shape[2], -1]))
 
 
-    patches=np.matmul(rd, patches[:, np.int32(np.random.rand(10000)*patches.shape[1])])
+    patches=np.matmul(rd, patches[:, np.int32(np.random.rand(5000)*patches.shape[1])])
 
     patches=normalize(patches)
 
@@ -124,12 +124,14 @@ with tf.Session() as sess:
   
       c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
 
-      ans1[j]=np.mean(np.absolute(np.matmul(testd, c17ta)-patches))
-      print(ans1)
+      ans1[j]=np.sum(np.absolute(c17ta))
 
-    ans[i]=np.argmin(ans1)
+    ans[i]=np.argmax(ans1)
+    print(ans1)
 
-  correct=[float(x==y) for (x, y) in zip(ans, np.argmax(labels[20:80], axis=1))]
+    print(ans)
+
+  correct=[float(x==y) for (x, y) in zip(ans, np.argmax(labels[20:20+num_test_pics], axis=1))]
 
 
   print('Percent Correct: %f'%(np.mean(correct)))
