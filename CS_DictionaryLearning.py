@@ -9,9 +9,9 @@ import pickle
 
 
 imsz=150
-ps=8  # size of the images
-measurements=120 # number of compressed measurements to take
-k=250 # number of patches in dictionary
+ps=12  # size of the images
+measurements=250 # number of compressed measurements to take
+k=400 # number of patches in dictionary
 rd=np.random.randn(measurements, 3*ps**2)/10.0
 num_test_pics=60
 num_classes=6
@@ -106,6 +106,7 @@ with tf.Session() as sess:
 	                                  patches.shape[1]*
 	                                  patches.shape[2], -1]))
 
+    print(patches.shape)
 
     patches=patches[:, np.int32(np.random.rand(7000)*patches.shape[1])]
 
@@ -117,11 +118,14 @@ with tf.Session() as sess:
 
     for j in range(num_classes):
       
-      testd=d['dict{0}'.format(j)]
+      testd=d['dict{0}'.format(j)] 
   
       c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
 
       best_dict[j]=np.sum(np.absolute(c17ta))
+
+
+    print(best_dict)
 
     ans[i]=np.argmin(best_dict)
     print(ans[i])
