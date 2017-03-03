@@ -2,8 +2,10 @@ import glob
 import os
 from scipy.misc import *
 import numpy as np
+import cv2
+import h5py
 
-def read_ims(directory, imsz, grayscale=False, save=False):
+def read_ims(directory, imsz, grayscale=False, save=None):
   ''' Reads in images in subdirectories located in directory and 
       assigns a unique one-hot vector to each image in each folder.
       
@@ -13,7 +15,11 @@ def read_ims(directory, imsz, grayscale=False, save=False):
            imsz: resizes the width and height of each image to 
                  imsz
            grayscale: True if images are grayscale, False if color
-                      images. Default is False. '''
+                      images. Default is False.
+           save: saves the images and labels as an h5 file. Arg is
+                 a list with two strings containing the key for the 
+                 data and the key for the labels. For example, 
+                 ['images', 'labels']. Defaults to no saving. '''
  
   main_dir=os.getcwd()
   os.chdir(directory)
@@ -38,10 +44,10 @@ def read_ims(directory, imsz, grayscale=False, save=False):
       imgs[r0, :, :, :]=im
     os.chdir(directory)
   os.chdir(main_dir)
-  if save is True:
+  if save is not None:
     f=h5py.File('data_labels.h5', 'a')
-    f.create_dataset('images', data=imgs)
-    f.create_dataset('labels', data=labels)
+    f.create_dataset(save[0], data=imgs)
+    f.create_dataset(save[1], data=labels)
     f.close()
   return imgs, labels
 
@@ -54,7 +60,7 @@ def visualize_dict(D, d_shape, patch_shape):
            d_shape: a list or tuple containing the desired number of patches per 
                     dimension of the dictionary. For example, a dictionary with
                     400 patches could be viewed at 20 patches x 20 patches.
-           patch_shape: a list, tuple, or array that specifies the width and height
+           patch_shape: a list that specifies the width and height
                         to reshape each patch to. '''
 
   if np.size(d_shape)==2:

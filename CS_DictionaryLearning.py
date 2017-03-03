@@ -4,18 +4,17 @@ from scipy.misc import *
 import os
 from skimage.util import view_as_windows
 from image_reader import *
-import h5py
 import sys
 import pickle
 
 
-imsz=140
+imsz=150
 ps=8  # size of the images
-measurements=110 # number of compressed measurements to take
-k=400 # number of patches in dictionary
-rd=np.sign(np.random.randn(measurements, 3*ps**2))
+measurements=120 # number of compressed measurements to take
+k=250 # number of patches in dictionary
+rd=np.random.randn(measurements, 3*ps**2)/10.0
 num_test_pics=60
-
+num_classes=6
 
 def normalize(data):
   return (data-np.mean(data, axis=0))/(np.std(data, axis=0)+1e-6)
@@ -47,11 +46,8 @@ def LCA(y, iters, batch_sz, num_dict_features=None, D=None):
 
 # read images from file and resize if not saved already
 print('Loading Data...')
-
-
 data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
 
-num_classes=labels.shape[1]
 
 with tf.Session() as sess:
 
@@ -78,23 +74,22 @@ with tf.Session() as sess:
  
       patches=np.matmul(rd, patches)
 
-      dict_, alpha_=LCA(patches, 300, 300, num_dict_features=k)
+      dict_, alpha_=LCA(patches, 400, 400, num_dict_features=k)
 
       d['dict{0}'.format(i)]=dict_
 
       #dict_proj=np.matmul(rd.transpose(), dict_)
   
-      #visualize_dict(dict_proj, d_shape=[20, 20, 3], patch_shape=[ps, ps])
+      #visualize_dict(dict_proj, d_shape=[27, 27, 3], patch_shape=[imsz, imsz])
 
-    with open('flower_dicts.pickle', 'wb') as handle:
-      pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
+    #with open('flower_dicts.pickle', 'wb') as handle:
+    #  pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
   
-    sys.exit(0)
+    #sys.exit(0)
 
 ################################ test new images #######################################
   
 
-  num_classes=3
 
   c1_test=data[20:20+num_test_pics, :, :, :]
  
@@ -112,11 +107,13 @@ with tf.Session() as sess:
 	                                  patches.shape[2], -1]))
 
 
-    patches=np.matmul(rd, patches[:, np.int32(np.random.rand(5000)*patches.shape[1])])
+    patches=patches[:, np.int32(np.random.rand(7000)*patches.shape[1])]
 
     patches=normalize(patches)
 
-    ans1=np.zeros([num_classes])
+    patches=np.matmul(rd, patches)  
+
+    best_dict=np.zeros([num_classes])
 
     for j in range(num_classes):
       
@@ -124,14 +121,12 @@ with tf.Session() as sess:
   
       c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
 
-      ans1[j]=np.sum(np.absolute(c17ta))
+      best_dict[j]=np.sum(np.absolute(c17ta))
 
-    ans[i]=np.argmax(ans1)
-    print(ans1)
-
-    print(ans)
+    ans[i]=np.argmin(best_dict)
+    print(ans[i])
 
   correct=[float(x==y) for (x, y) in zip(ans, np.argmax(labels[20:20+num_test_pics], axis=1))]
 
 
-  print('Percent Correct: %f'%(np.mean(correct)))
+  print('Correct: %f'%(np.mean(correct)))
