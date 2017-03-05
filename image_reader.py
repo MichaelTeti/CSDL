@@ -65,7 +65,7 @@ def visualize_dict(D, d_shape, patch_shape):
 
   if np.size(d_shape)==2:
     vis_d=np.zeros([d_shape[0]*patch_shape[0], d_shape[1]*patch_shape[1], 1])
-    resize_shp=[patch_shape[0], patch_shape[1]]
+    resize_shp=[patch_shape[0], patch_shape[1], 1]
   else:
     vis_d=np.zeros([d_shape[0]*patch_shape[0], d_shape[1]*patch_shape[1], 3])
     resize_shp=[patch_shape[0], patch_shape[1], 3]
@@ -75,4 +75,7 @@ def visualize_dict(D, d_shape, patch_shape):
       resized_patch=np.reshape(D[:, row*d_shape[1]+col], resize_shp)
       vis_d[row*patch_shape[0]:row*patch_shape[0]+patch_shape[0], 
             col*patch_shape[1]:col*patch_shape[1]+patch_shape[1], :]=resized_patch
-  imshow(vis_d)
+  if vis_d.shape[2]==3:
+    imshow(vis_d)
+  else:
+    imshow(vis_d.reshape([vis_d.shape[0], vis_d.shape[1]]))

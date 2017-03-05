@@ -9,12 +9,12 @@ import pickle
 
 
 imsz=150
-ps=12  # size of the images
-measurements=250 # number of compressed measurements to take
-k=400 # number of patches in dictionary
+ps=8  # size of the images
+measurements=75 # number of compressed measurements to take
+k=300 # number of patches in dictionary
 rd=np.random.randn(measurements, 3*ps**2)/10.0
 num_test_pics=60
-num_classes=6
+num_classes=17
 
 def normalize(data):
   return (data-np.mean(data, axis=0))/(np.std(data, axis=0)+1e-6)
@@ -59,28 +59,26 @@ with tf.Session() as sess:
 
     for i in range(num_classes):
   
-      sys.stdout.write("Learning Dictionary %d / %d   \r" % (i+1, num_classes) )
+      sys.stdout.write("Learning Dictionary %d / %d   \r" % (i+1, num_classes))
       sys.stdout.flush()
 
       patches=view_as_windows(data[i*80:i*80+20, :, :, :], (1, ps, ps, 3))
 
-      patches=patches.reshape([patches.shape[0]*
-			       patches.shape[1]*
-			       patches.shape[2]*
-			       patches.shape[3]*
-			       patches.shape[4], -1])
-
-      patches=normalize(patches.transpose())
+      patches=np.transpose(patches.reshape([patches.shape[0]*
+			                    patches.shape[1]*
+			       		    patches.shape[2]*
+			       		    patches.shape[3]*
+			       		    patches.shape[4], -1]))
  
-      patches=np.matmul(rd, patches)
+      patches=np.matmul(rd, normalize(patches))
+
+      patches=np.matmul(rd.transpose(), patches)
 
       dict_, alpha_=LCA(patches, 400, 400, num_dict_features=k)
 
       d['dict{0}'.format(i)]=dict_
-
-      #dict_proj=np.matmul(rd.transpose(), dict_)
   
-      #visualize_dict(dict_proj, d_shape=[27, 27, 3], patch_shape=[imsz, imsz])
+      #visualize_dict(dict_, d_shape=[12, 12], patch_shape=[ps, ps])
 
     #with open('flower_dicts.pickle', 'wb') as handle:
     #  pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
@@ -106,13 +104,13 @@ with tf.Session() as sess:
 	                                  patches.shape[1]*
 	                                  patches.shape[2], -1]))
 
-    print(patches.shape)
 
     patches=patches[:, np.int32(np.random.rand(7000)*patches.shape[1])]
 
-    patches=normalize(patches)
 
-    patches=np.matmul(rd, patches)  
+    patches=np.matmul(rd, normalize(patches))  
+  
+    patches=np.matmul(rd.transpose(), patches)
 
     best_dict=np.zeros([num_classes])
 
@@ -122,7 +120,7 @@ with tf.Session() as sess:
   
       c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
 
-      best_dict[j]=np.sum(np.absolute(c17ta))
+      best_dict[j]=np.sum(np.absolute(np.matmul(testd, c17ta)-patches))
 
 
     print(best_dict)
