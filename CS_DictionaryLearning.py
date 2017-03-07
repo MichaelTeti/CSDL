@@ -47,7 +47,6 @@ def LCA(y, iters, batch_sz, num_dict_features=None, D=None):
 print('Loading Data...')
 data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
 
-
 with tf.Session() as sess:
 
   try:
@@ -92,44 +91,47 @@ with tf.Session() as sess:
 
 ################################ test new images #######################################
 
+  val_acc=np.zeros([17*80])
 
-  c1_test=data[20:20+num_test_pics, :, :, :]
- 
-  ans=np.zeros([num_test_pics])
+  correct_label=np.zeros([17*80])
+
+  for n in range(17):
+
+    c1_test=data[n*80+20:n*80+20+num_test_pics, :, :, :]
    
-  for i in range(num_test_pics):
+    for i in range(num_test_pics):
 
-    patches=view_as_windows(c1_test[i, :, :, :], (ps, ps, 3))
+      patches=view_as_windows(c1_test[i, :, :, :], (ps, ps, 3))
   
-    patches=np.transpose(patches.reshape([patches.shape[0]*
-	                                  patches.shape[1]*
-	                                  patches.shape[2], -1]))
+      patches=np.transpose(patches.reshape([patches.shape[0]*
+	                                    patches.shape[1]*
+	                                    patches.shape[2], -1]))
 
 
-    patches=patches[:, np.int32(np.random.rand(8000)*patches.shape[1])]
+      patches=patches[:, np.int32(np.random.rand(8000)*patches.shape[1])]
 
-    patches=np.matmul(rd, normalize(patches))  
+      patches=np.matmul(rd, normalize(patches))  
   
-    #patches=np.matmul(rd.transpose(), patches)
+      #patches=np.matmul(rd.transpose(), patches)
 
-    best_dict=np.zeros([num_classes])
+      best_dict=np.zeros([num_classes])
 
-    for j in range(num_classes):
+      for j in range(num_classes):
       
-      testd=d['dict{0}'.format(j)] 
+        testd=d['dict{0}'.format(j)] 
   
-      c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
+        c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
 
-      best_dict[j]=np.sum(np.absolute(np.matmul(testd, c17ta)-patches))
+        best_dict[j]=np.sum(np.absolute(np.matmul(testd, c17ta)-patches))
 
-    print(best_dict)
+      val_acc[n*num_test_pics+i]=np.argmin(best_dict)
+ 
+      correct_label[n*num_test_pics+i]=np.argmax(labels[n*80+20:n*80+20+(i+1), :])
 
-    ans[i]=np.argmin(best_dict)
-    
-    sys.stdout.write('Test Image %d; Prediction: %d      \r' % (i+1, ans[i]) )
-    sys.stdout.flush()
+      sys.stdout.write('Test Image %d; Class: %d; Prediction: %d      \r' % (i+1, n, val_acc[i]) )
+      sys.stdout.flush()
 
-  correct=[float(x==y) for (x, y) in zip(ans, np.argmax(labels[20:20+num_test_pics], axis=1))]
+  correct_label=[float(x==y) for (x, y) in zip(val_acc, correct_label)]
 
 
-  print('Correct: %f'%(np.mean(correct)))
+  print('Correct: %f'%(np.mean(correct_label)))

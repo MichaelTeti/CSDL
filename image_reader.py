@@ -43,8 +43,9 @@ def read_ims(directory, imsz, grayscale=False, save=None):
     for filename in os.listdir(os.getcwd()):
       print(filename)
       im=imresize(imread(filename), [imsz, imsz])
-      if ValueError:
+      if im.ndim!=num_channels:
         print('Check %s file, wrong size'%(filename))
+        sys.exit(0)
       imgs[r0, :, :, :]=im
     os.chdir(directory)
   os.chdir(main_dir)
