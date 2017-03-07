@@ -36,9 +36,9 @@ def read_ims(directory, imsz, grayscale=False, save=None):
   for f in os.listdir(os.getcwd()):
     print('Folder name: %s'%(f))
     os.chdir(f)
-    r0=np.array(np.where(np.sum(labels, axis=1)==0))
-    c0=np.array(np.where(np.sum(labels, axis=0)==0))
-    labels[r0[0, 0]:r0[0, 0]+len(glob.glob1(os.getcwd(), '*')), c0[0, 0]]=1
+    r0=np.argmin(np.sum(labels, axis=1))
+    c0=np.argmin(np.sum(labels, axis=0))
+    labels[r0:r0+len(glob.glob1(os.getcwd(), '*')), c0]=1
 
     for filename in os.listdir(os.getcwd()):
       print(filename)
