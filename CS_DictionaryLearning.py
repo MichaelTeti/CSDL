@@ -10,7 +10,7 @@ import pickle
 
 imsz=150
 ps=8  # size of the images
-measurements=75 # number of compressed measurements to take
+measurements=80 # number of compressed measurements to take
 k=300 # number of patches in dictionary
 rd=np.random.randn(measurements, 3*ps**2)/10.0
 num_test_pics=60
@@ -80,10 +80,10 @@ with tf.Session() as sess:
   
       #visualize_dict(dict_, d_shape=[12, 12], patch_shape=[ps, ps])
 
-    #with open('flower_dicts.pickle', 'wb') as handle:
-    #  pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
+    with open('flower_dicts.pickle', 'wb') as handle:
+      pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
   
-    #sys.exit(0)
+    sys.exit(0)
 
 ################################ test new images #######################################
   
@@ -105,8 +105,7 @@ with tf.Session() as sess:
 	                                  patches.shape[2], -1]))
 
 
-    patches=patches[:, np.int32(np.random.rand(7000)*patches.shape[1])]
-
+    patches=patches[:, np.int32(np.random.rand(6500)*patches.shape[1])]
 
     patches=np.matmul(rd, normalize(patches))  
   
