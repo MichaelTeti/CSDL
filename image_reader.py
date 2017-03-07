@@ -7,7 +7,8 @@ import h5py
 
 def read_ims(directory, imsz, grayscale=False, save=None):
   ''' Reads in images in subdirectories located in directory and 
-      assigns a unique one-hot vector to each image in each folder.
+      assigns a unique one-hot vector to each image in the respective
+      folder.
       
       args:
            directory: the location of all the folders containing
