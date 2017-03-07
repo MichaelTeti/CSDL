@@ -11,8 +11,7 @@ import pickle
 imsz=150
 ps=8  # size of the images
 measurements=80 # number of compressed measurements to take
-k=300 # number of patches in dictionary
-rd=np.random.randn(measurements, 3*ps**2)/10.0
+k=250 # number of patches in dictionary
 num_test_pics=60
 num_classes=17
 
@@ -52,11 +51,15 @@ data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
 with tf.Session() as sess:
 
   try:
+    rd=np.load('rand_matrix.npy')
     with open('flower_dicts.pickle', 'rb') as handle:
       d = pickle.load(handle)
+
   except IOError:
     d={}
-
+  
+    rd=np.random.randn(measurements, 3*ps**2)/10.0
+    
     for i in range(num_classes):
   
       sys.stdout.write("Learning Dictionary %d / %d   \r" % (i+1, num_classes))
@@ -72,7 +75,7 @@ with tf.Session() as sess:
  
       patches=np.matmul(rd, normalize(patches))
 
-      patches=np.matmul(rd.transpose(), patches)
+      #patches=np.matmul(rd.transpose(), patches)
 
       dict_, alpha_=LCA(patches, 400, 400, num_dict_features=k)
 
@@ -82,11 +85,12 @@ with tf.Session() as sess:
 
     with open('flower_dicts.pickle', 'wb') as handle:
       pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
+   
+    np.save('rand_matrix.npy', rd)
   
     sys.exit(0)
 
 ################################ test new images #######################################
-  
 
 
   c1_test=data[20:20+num_test_pics, :, :, :]
@@ -95,9 +99,6 @@ with tf.Session() as sess:
    
   for i in range(num_test_pics):
 
-    sys.stdout.write('Test Image %d                    \r' % (i+1) )
-    sys.stdout.flush()
-
     patches=view_as_windows(c1_test[i, :, :, :], (ps, ps, 3))
   
     patches=np.transpose(patches.reshape([patches.shape[0]*
@@ -105,11 +106,11 @@ with tf.Session() as sess:
 	                                  patches.shape[2], -1]))
 
 
-    patches=patches[:, np.int32(np.random.rand(6500)*patches.shape[1])]
+    patches=patches[:, np.int32(np.random.rand(8000)*patches.shape[1])]
 
     patches=np.matmul(rd, normalize(patches))  
   
-    patches=np.matmul(rd.transpose(), patches)
+    #patches=np.matmul(rd.transpose(), patches)
 
     best_dict=np.zeros([num_classes])
 
@@ -121,11 +122,12 @@ with tf.Session() as sess:
 
       best_dict[j]=np.sum(np.absolute(np.matmul(testd, c17ta)-patches))
 
-
     print(best_dict)
 
     ans[i]=np.argmin(best_dict)
-    print(ans[i])
+    
+    sys.stdout.write('Test Image %d; Prediction: %d      \r' % (i+1, ans[i]) )
+    sys.stdout.flush()
 
   correct=[float(x==y) for (x, y) in zip(ans, np.argmax(labels[20:20+num_test_pics], axis=1))]
 

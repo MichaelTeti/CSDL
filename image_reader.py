@@ -18,9 +18,10 @@ def read_ims(directory, imsz, grayscale=False, save=None):
            grayscale: True if images are grayscale, False if color
                       images. Default is False.
            save: saves the images and labels as an h5 file. Arg is
-                 a list with two strings containing the key for the 
+                 a list with three strings containing the key for the 
                  data and the key for the labels. For example, 
-                 ['images', 'labels']. Defaults to no saving. '''
+                 ['images_labels.h5', 'images', 'labels']. 
+                 Defaults to no saving. '''
  
   main_dir=os.getcwd()
   os.chdir(directory)
@@ -46,9 +47,9 @@ def read_ims(directory, imsz, grayscale=False, save=None):
     os.chdir(directory)
   os.chdir(main_dir)
   if save is not None:
-    f=h5py.File('data_labels.h5', 'a')
-    f.create_dataset(save[0], data=imgs)
-    f.create_dataset(save[1], data=labels)
+    f=h5py.File(save[0], 'a')
+    f.create_dataset(save[1], data=imgs)
+    f.create_dataset(save[2], data=labels)
     f.close()
   return imgs, labels
 
