@@ -108,7 +108,7 @@ with tf.Session() as sess:
 	                                    patches.shape[2], -1]))
 
 
-      patches=patches[:, np.int32(np.random.rand(8000)*patches.shape[1])]
+      patches=patches[:, np.int32(np.random.rand(7500)*patches.shape[1])]
 
       patches=np.matmul(rd, normalize(patches))  
   
