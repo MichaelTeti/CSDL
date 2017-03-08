@@ -10,10 +10,11 @@ import pickle
 
 imsz=150
 ps=8  # size of the images
-measurements=80 # number of compressed measurements to take
-k=250 # number of patches in dictionary
+measurements=100 # number of compressed measurements to take
+k=220 # number of patches in dictionary
 num_test_pics=60
 num_classes=17
+save=['csdl.h5', 'images', 'labels']
 
 def normalize(data):
   return (data-np.mean(data, axis=0))/(np.std(data, axis=0)+1e-6)
@@ -43,9 +44,18 @@ def LCA(y, iters, batch_sz, num_dict_features=None, D=None):
   return sess.run(D), sess.run(a)
 
 
+
 # read images from file and resize if not saved already
-print('Loading Data...')
-data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg', imsz)
+try:
+  f=h5py.File(save[0], 'r')
+  data=f[save[1]]
+  labels=f[save[2]]
+
+except IOError:
+  data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg',
+		        imsz, 
+	                save=save)
+
 
 with tf.Session() as sess:
 
@@ -91,11 +101,11 @@ with tf.Session() as sess:
 
 ################################ test new images #######################################
 
-  val_acc=np.zeros([17*80])
+  val_acc=np.zeros([num_classes*80])
 
-  correct_label=np.zeros([17*80])
+  correct_label=np.zeros([num_classes*80])
 
-  for n in range(17):
+  for n in range(num_classes):
 
     c1_test=data[n*80+20:n*80+20+num_test_pics, :, :, :]
    
@@ -122,7 +132,7 @@ with tf.Session() as sess:
   
         c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
 
-        best_dict[j]=np.sum(np.absolute(np.matmul(testd, c17ta)-patches))
+        best_dict[j]=np.mean((np.matmul(testd, c17ta)-patches)**2)
 
       val_acc[n*num_test_pics+i]=np.argmin(best_dict)
  
