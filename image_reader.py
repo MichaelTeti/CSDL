@@ -32,7 +32,8 @@ def read_ims(directory, imsz, grayscale=False, save=None):
   num_ims=sum([len(files) for r, d, files in os.walk(directory)])
   imgs=np.zeros([num_ims, imsz, imsz, num_channels])
   labels=np.zeros([num_ims, len(os.listdir(os.getcwd()))])
-  
+  im_num=0  
+
   for f in os.listdir(os.getcwd()):
     print('Folder name: %s'%(f))
     os.chdir(f)
@@ -46,7 +47,8 @@ def read_ims(directory, imsz, grayscale=False, save=None):
       if im.ndim!=num_channels:
         print('Check %s file, wrong size'%(filename))
         sys.exit(0)
-      imgs[r0, :, :, :]=im
+      imgs[im_num, :, :, :]=im
+      im_num+=1
     os.chdir(directory)
   os.chdir(main_dir)
   if save is not None:
