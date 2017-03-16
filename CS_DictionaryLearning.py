@@ -11,10 +11,12 @@ import pickle
 imsz=150
 ps=8  # size of the images
 measurements=100 # number of compressed measurements to take
-k=220 # number of patches in dictionary
-num_test_pics=60
+k=400 # number of patches in first dictionary
 num_classes=17
 save=['csdl.h5', 'images', 'labels']
+test_bs=500
+num_train=50
+num_test_pics=80-num_train
 
 def normalize(data):
   return (data-np.mean(data, axis=0))/(np.std(data, axis=0)+1e-6)
@@ -26,9 +28,13 @@ def LCA(y, iters, batch_sz, num_dict_features=None, D=None):
 
       Args: 
            y: input signal or vector, or multiple column vectors.
+
            num_dict_features: number of dictionary patches to learn.
+
            iters: number of LCA iterations.
+
            batch_sz: number of samples to send to the network at each iteration.
+
            D: The dictionary to be used in the network. 
   '''
   assert(num_dict_features is None or D is None), 'provide D or num_dict_features, not both'
@@ -74,7 +80,7 @@ with tf.Session() as sess:
       sys.stdout.write("Learning Dictionary %d / %d   \r" % (i+1, num_classes))
       sys.stdout.flush()
 
-      patches=view_as_windows(data[i*80:i*80+20, :, :, :], (1, ps, ps, 3))
+      patches=view_as_windows(data[i*80:i*80+num_train, :, :, :], (1, ps, ps, 3))
 
       patches=np.transpose(patches.reshape([patches.shape[0]*
 			                    patches.shape[1]*
@@ -86,7 +92,7 @@ with tf.Session() as sess:
 
       #patches=np.matmul(rd.transpose(), patches)
 
-      dict_, alpha_=LCA(patches, 400, 400, num_dict_features=k)
+      dict_, alpha_=LCA(patches, 400, 100, num_dict_features=k)
 
       d['dict{0}'.format(i)]=dict_
   
@@ -107,18 +113,18 @@ with tf.Session() as sess:
 
   for n in range(num_classes):
 
-    c1_test=data[n*80+20:n*80+20+num_test_pics, :, :, :]
+    c1_test=data[n*80+num_train:n*80+num_train+num_test_pics, :, :, :]
    
     for i in range(num_test_pics):
 
       patches=view_as_windows(c1_test[i, :, :, :], (ps, ps, 3))
+
+      patches=patches[::4, ::4, :, :, :, :]
   
       patches=np.transpose(patches.reshape([patches.shape[0]*
 	                                    patches.shape[1]*
 	                                    patches.shape[2], -1]))
 
-
-      patches=patches[:, np.int32(np.random.rand(7500)*patches.shape[1])]
 
       patches=np.matmul(rd, normalize(patches))  
   
@@ -129,14 +135,26 @@ with tf.Session() as sess:
       for j in range(num_classes):
       
         testd=d['dict{0}'.format(j)] 
-  
-        c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
 
-        best_dict[j]=np.mean((np.matmul(testd, c17ta)-patches)**2)
+        test_num=patches.shape[1]/500
+
+        alphas=np.zeros([testd.shape[1], patches.shape[1]])
+
+        for iters in range(test_num):
+
+          testpatches=patches[:, iters*test_bs:iters*test_bs+test_bs]
+  
+          c17td, c17ta=LCA(testpatches, 1, test_bs, D=testd)
+
+          alphas[:, iters*test_bs:iters*test_bs+test_bs]=c17ta
+
+        best_dict[j]=np.mean(np.matmul(testd, alphas)-patches)
+
+      print(best_dict)
 
       val_acc[n*num_test_pics+i]=np.argmin(best_dict)
  
-      correct_label[n*num_test_pics+i]=np.argmax(labels[n*80+20:n*80+20+(i+1), :])
+      correct_label[n*num_test_pics+i]=np.argmax(labels[n*80+num_train:n*80+num_train+(i+1), :])
 
       sys.stdout.write('Test Image %d; Class: %d; Prediction: %d      \r' % (i+1, n, val_acc[i]) )
       sys.stdout.flush()
