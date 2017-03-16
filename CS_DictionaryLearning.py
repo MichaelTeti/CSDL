@@ -14,7 +14,6 @@ measurements=100 # number of compressed measurements to take
 k=400 # number of patches in first dictionary
 num_classes=17
 save=['csdl.h5', 'images', 'labels']
-test_bs=500
 num_train=50
 num_test_pics=80-num_train
 
@@ -37,6 +36,7 @@ def LCA(y, iters, batch_sz, num_dict_features=None, D=None):
 
            D: The dictionary to be used in the network. 
   '''
+  
   assert(num_dict_features is None or D is None), 'provide D or num_dict_features, not both'
   if D is None:
     D=np.random.randn(y.shape[0], num_dict_features)
@@ -57,7 +57,12 @@ try:
   data=f[save[1]]
   labels=f[save[2]]
 
-except IOError:
+  f=h5py.File('test_imgs_and_labels.h5', 'r')
+  test_pics=f['test_imgs']
+  correct_label=f['test_labels']
+
+
+except IOError or KeyError:
   data, labels=read_ims('/home/mpcr/Documents/MT/CSDL/17flowers/jpg',
 		        imsz, 
 	                save=save)
@@ -95,6 +100,8 @@ with tf.Session() as sess:
       dict_, alpha_=LCA(patches, 400, 100, num_dict_features=k)
 
       d['dict{0}'.format(i)]=dict_
+
+      d['alpha{0}'.format(i)]=alpha_
   
       #visualize_dict(dict_, d_shape=[12, 12], patch_shape=[ps, ps])
 
@@ -102,62 +109,61 @@ with tf.Session() as sess:
       pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL) 
    
     np.save('rand_matrix.npy', rd)
-  
+
+    testpics=np.zeros([num_test_pics*num_classes, imsz, imsz, 3])
+
+    correct_label=np.zeros([num_classes*80])
+
+    for j in range(num_classes):
+      testdata=data[j*80+num_train:j*80+num_train+num_test_pics, :, :, :]
+      testpics[j*num_test_pics:j*num_test_pics+num_test_pics, :, :, :]=testdata
+      label=np.argmax(labels[j*80+num_train:j*80+num_train+num_test_pics, :], axis=1)
+      correct_label[j*num_test_pics:j*num_test_pics+num_test_pics]=label
+
+    f=h5py.File('test_imgs_and_labels.h5', 'a')
+    f.create_dataset('test_imgs', data=testpics)
+    f.create_dataset('test_labels', data=correct_label)
+    f.close()
+
     sys.exit(0)
 
 ################################ test new images #######################################
 
   val_acc=np.zeros([num_classes*80])
-
-  correct_label=np.zeros([num_classes*80])
-
-  for n in range(num_classes):
-
-    c1_test=data[n*80+num_train:n*80+num_train+num_test_pics, :, :, :]
    
-    for i in range(num_test_pics):
+  for i in range(test_pics.shape[0]):
 
-      patches=view_as_windows(c1_test[i, :, :, :], (ps, ps, 3))
+    patches=view_as_windows(test_pics[i, :, :, :], (ps, ps, 3))
 
-      patches=patches[::4, ::4, :, :, :, :]
+    patches=patches[::4, ::4, :, :, :, :]
   
-      patches=np.transpose(patches.reshape([patches.shape[0]*
-	                                    patches.shape[1]*
-	                                    patches.shape[2], -1]))
+    patches=np.transpose(patches.reshape([patches.shape[0]*
+	                                  patches.shape[1]*
+	                                  patches.shape[2], -1]))
 
 
-      patches=np.matmul(rd, normalize(patches))  
+    patches=np.matmul(rd, normalize(patches))  
   
-      #patches=np.matmul(rd.transpose(), patches)
+    #patches=np.matmul(rd.transpose(), patches)
 
-      best_dict=np.zeros([num_classes])
+    best_dict=np.zeros([num_classes])
 
-      for j in range(num_classes):
+    for j in range(num_classes):
       
-        testd=d['dict{0}'.format(j)] 
-
-        test_num=patches.shape[1]/500
-
-        alphas=np.zeros([testd.shape[1], patches.shape[1]])
-
-        for iters in range(test_num):
-
-          testpatches=patches[:, iters*test_bs:iters*test_bs+test_bs]
-  
-          c17td, c17ta=LCA(testpatches, 1, test_bs, D=testd)
-
-          alphas[:, iters*test_bs:iters*test_bs+test_bs]=c17ta
-
-        best_dict[j]=np.mean(np.matmul(testd, alphas)-patches)
-
-      print(best_dict)
-
-      val_acc[n*num_test_pics+i]=np.argmin(best_dict)
+      testd=d['dict{0}'.format(j)] 
  
-      correct_label[n*num_test_pics+i]=np.argmax(labels[n*80+num_train:n*80+num_train+(i+1), :])
+      #testa=d['alpha{0}'.format(j)]
+  
+      c17td, c17ta=LCA(patches, 65, 85, D=testd)
 
-      sys.stdout.write('Test Image %d; Class: %d; Prediction: %d      \r' % (i+1, n, val_acc[i]) )
-      sys.stdout.flush()
+      best_dict[j]=np.mean(np.absolute(c17td-testd))
+
+    print(best_dict)
+
+    val_acc[i]=np.argmin(best_dict)
+
+    sys.stdout.write('Test Image %d; Class: %d; Prediction: %d      \r' % (i+1, np.floor(i/num_test_pics), val_acc[i]) )
+    sys.stdout.flush()
 
   correct_label=[float(x==y) for (x, y) in zip(val_acc, correct_label)]
 
