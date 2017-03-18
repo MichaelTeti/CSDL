@@ -9,7 +9,7 @@ import pickle
 
 
 imsz=150
-ps=8  # size of the images
+ps=16  # size of the images
 measurements=100 # number of compressed measurements to take
 k=400 # number of patches in first dictionary
 num_classes=17
@@ -133,6 +133,8 @@ with tf.Session() as sess:
    
   for i in range(test_pics.shape[0]):
 
+    imshow(test_pics[i, :, :, :])
+
     patches=view_as_windows(test_pics[i, :, :, :], (ps, ps, 3))
 
     patches=patches[::4, ::4, :, :, :, :]
@@ -154,13 +156,13 @@ with tf.Session() as sess:
  
       #testa=d['alpha{0}'.format(j)]
   
-      c17td, c17ta=LCA(patches, 65, 85, D=testd)
+      c17td, c17ta=LCA(patches, 25, 100, D=testd)
 
-      best_dict[j]=np.mean(np.absolute(c17td-testd))
+      best_dict[j]=np.sum((np.matmul(testd, c17ta)-patches)**2)
 
     print(best_dict)
 
-    val_acc[i]=np.argmin(best_dict)
+    val_acc[i]=np.argmax(best_dict)
 
     sys.stdout.write('Test Image %d; Class: %d; Prediction: %d      \r' % (i+1, np.floor(i/num_test_pics), val_acc[i]) )
     sys.stdout.flush()
