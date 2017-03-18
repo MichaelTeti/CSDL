@@ -9,7 +9,7 @@ import pickle
 
 
 imsz=150
-ps=8  # size of the images
+ps=16  # size of the images
 measurements=100 # number of compressed measurements to take
 k=400 # number of patches in first dictionary
 num_classes=17
@@ -156,9 +156,9 @@ with tf.Session() as sess:
  
       #testa=d['alpha{0}'.format(j)]
   
-      c17td, c17ta=LCA(patches, 10, 500, num_dict_features=k)
+      c17td, c17ta=LCA(patches, 25, 100, D=testd)
 
-      best_dict[j]=np.sum(np.matmul(c17td.transpose(), testd))
+      best_dict[j]=np.sum((np.matmul(testd, c17ta)-patches)**2)
 
     print(best_dict)
 
