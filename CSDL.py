@@ -14,35 +14,51 @@ Links:
 from __future__ import division, print_function, absolute_import
 
 import tflearn
-from tflearn.layers.core import reshape
-from tflearn.data_utils import shuffle, to_categorical
+from scipy.io import loadmat
+import numpy as np
 from tflearn.layers.core import input_data, dropout, fully_connected
 from tflearn.layers.conv import conv_2d, max_pool_2d
 from tflearn.layers.normalization import local_response_normalization
 from tflearn.layers.estimator import regression
-import numpy as np
-from scipy.misc import imshow
-from tflearn.data_augmentation import ImageAugmentation
+import os
+import sys
+from skimage.util import view_as_windows
+from scipy.misc import *
+import csv
 
-import tflearn.datasets.oxflower17 as oxflower17
-X, Y = oxflower17.load_data(one_hot=True, resize_pics=(100, 100))
-X=X.reshape([X.shape[0], -1])
-X=(X-np.mean(X, axis=0))/(np.std(X, axis=0)+1e-6)
-X=X.reshape([X.shape[0], 150, 150, 3])
-img_aug = ImageAugmentation()
-img_aug.add_random_rotation(max_angle=33.)
+ps=9
+add=np.int32((ps-1)/2)
+measurements=100
+epsilon=1e-6
 
+os.chdir('..')
+data=loadmat('Pavia.mat')
+labels=loadmat('Pavia_gt.mat')
+data=data['pavia']
+labels=labels['pavia_gt']
+
+
+data=np.pad(data, ((add, add), (add, add), (0, 0)), 'edge')
+r, c=np.nonzero(labels)
+r=r+add
+c=c+add
+X=np.zeros([r.size, 9, 9, 1])
+Y=np.zeros([r.size, np.amax(labels)+1])
+rand=np.int32(np.random.rand(81)*(102*ps**2))
+
+for i in range(r.size):
+  dflat=data[r[i]-(add):r[i]+(add+1), c[i]-add:c[i]+(add+1), :].reshape([1, 102*ps**2])
+  X[i, :, :, :]=dflat[:, rand].reshape([9, 9, 1])
+  Y[i, labels[r[i]-add, c[i]-add]]=1
+
+X=(X-np.mean(X, axis=0))/(np.std(X, axis=0)+epsilon)
 
 # Building 'AlexNet'
-network = input_data(shape=[None, 100, 100, 3], data_augmentation=img_aug)
-network = reshape(network, [-1, 100*100*3])
-network = fully_connected(network, 2000, activation='relu')
-network = fully_connected(network, 3*100**2, activation='relu')
-network = reshape(network, [-1, 100, 100, 3])
-network = conv_2d(network, 96, 11, strides=4, weights_init='normal', trainable=False, activation='relu')
+network = input_data(shape=[None, 9, 9, 1])
+network = conv_2d(network, 96, 11, strides=4, activation='relu')
 network = max_pool_2d(network, 3, strides=2)
 network = local_response_normalization(network)
-network = conv_2d(network, 256, 5, weights_init='normal', trainable=False, activation='relu')
+network = conv_2d(network, 256, 5, activation='relu')
 network = max_pool_2d(network, 3, strides=2)
 network = local_response_normalization(network)
 network = conv_2d(network, 384, 3, activation='relu')
@@ -54,14 +70,14 @@ network = fully_connected(network, 4096, activation='tanh')
 network = dropout(network, 0.5)
 network = fully_connected(network, 4096, activation='tanh')
 network = dropout(network, 0.5)
-network = fully_connected(network, 17, activation='softmax')
+network = fully_connected(network, 10, activation='softmax')
 network = regression(network, optimizer='momentum',
                      loss='categorical_crossentropy',
                      learning_rate=0.001)
 
 # Training
 model = tflearn.DNN(network, checkpoint_path='model_alexnet',
-                    max_checkpoints=1, tensorboard_verbose=3)
+                    max_checkpoints=1, tensorboard_verbose=2)
 model.fit(X, Y, n_epoch=1000, validation_set=0.1, shuffle=True,
           show_metric=True, batch_size=64, snapshot_step=200,
-snapshot_epoch=False, run_id='elad_model_oxford_100x100_first2layersrandom')
+snapshot_epoch=False, run_id='Pavia_random1%')
