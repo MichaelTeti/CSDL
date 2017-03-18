@@ -97,7 +97,7 @@ with tf.Session() as sess:
 
       #patches=np.matmul(rd.transpose(), patches)
 
-      dict_, alpha_=LCA(patches, 400, 100, num_dict_features=k)
+      dict_, alpha_=LCA(patches, 300, 100, num_dict_features=k)
 
       d['dict{0}'.format(i)]=dict_
 
@@ -154,7 +154,7 @@ with tf.Session() as sess:
  
       #testa=d['alpha{0}'.format(j)]
   
-      c17td, c17ta=LCA(patches, 10, patches.shape[1], D=testd)
+      c17td, c17ta=LCA(patches, 15, patches.shape[1], D=testd)
 
       best_dict[j]=np.mean(np.absolute(c17td-testd))
 
