@@ -156,7 +156,7 @@ with tf.Session() as sess:
  
       #testa=d['alpha{0}'.format(j)]
   
-      c17td, c17ta=LCA(patches, 25, 100, D=testd)
+      c17td, c17ta=LCA(patches, 1, patches.shape[1], D=testd)
 
       best_dict[j]=np.sum((np.matmul(testd, c17ta)-patches)**2)
 
