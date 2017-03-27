@@ -22,11 +22,21 @@ from tflearn.layers.normalization import local_response_normalization
 from tflearn.layers.estimator import regression
 import os
 import sys
-from skimage.util import view_as_windows
+from skimage.util import view_as_windows as vaw
 from scipy.misc import *
-import csv
+import matplotlib.pyplot as plt
 
-ps=9
+os.chdir('Single_pixel')
+
+a=np.loadtxt('run_Pavia_10%rand_single_pixel,tag_Accuracy-Validation.csv', delimiter=',')
+print((np.amax(a[:, 0])-np.amin(a[:, 0]))/3600)
+plt.plot(a[:, 2])
+plt.show()
+sys.exit(0)
+
+
+
+ps=5
 add=np.int32((ps-1)/2)
 measurements=100
 epsilon=1e-6
@@ -39,22 +49,30 @@ labels=labels['pavia_gt']
 
 
 data=np.pad(data, ((add, add), (add, add), (0, 0)), 'edge')
-r, c=np.nonzero(labels)
+#r, c=np.nonzero(labels)
+#data=data[r, c, :]
+#rand=np.int32(np.random.rand(4)*data.shape[1])
+#data=data[:, rand]
+#Y=np.zeros([data.shape[0], np.amax(labels)+1])
+#labels=labels[r, c]
+#for i in range(Y.shape[0]):
+#  Y[i, labels[i]]=1
+#X=data[:, np.newaxis, np.newaxis, :]
 r=r+add
 c=c+add
-X=np.zeros([r.size, 9, 9, 1])
+X=np.zeros([r.size, 2, 2, 1])
 Y=np.zeros([r.size, np.amax(labels)+1])
-rand=np.int32(np.random.rand(81)*(102*ps**2))
+rand=np.int32(np.random.rand(4)*(102*ps**2))
 
 for i in range(r.size):
   dflat=data[r[i]-(add):r[i]+(add+1), c[i]-add:c[i]+(add+1), :].reshape([1, 102*ps**2])
-  X[i, :, :, :]=dflat[:, rand].reshape([9, 9, 1])
+  X[i, :, :, :]=dflat[:, rand].reshape([2, 2, 1])
   Y[i, labels[r[i]-add, c[i]-add]]=1
 
 X=(X-np.mean(X, axis=0))/(np.std(X, axis=0)+epsilon)
 
 # Building 'AlexNet'
-network = input_data(shape=[None, 9, 9, 1])
+network = input_data(shape=[None, 1, 1, 4])
 network = conv_2d(network, 96, 11, strides=4, activation='relu')
 network = max_pool_2d(network, 3, strides=2)
 network = local_response_normalization(network)
@@ -80,4 +98,4 @@ model = tflearn.DNN(network, checkpoint_path='model_alexnet',
                     max_checkpoints=1, tensorboard_verbose=2)
 model.fit(X, Y, n_epoch=1000, validation_set=0.1, shuffle=True,
           show_metric=True, batch_size=64, snapshot_step=200,
-snapshot_epoch=False, run_id='Pavia_random1%')
+snapshot_epoch=False, run_id='Pavia_4rand_single_pixel')
