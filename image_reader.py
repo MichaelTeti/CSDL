@@ -5,7 +5,7 @@ import numpy as np
 import cv2
 import h5py
 
-def read_ims(directory, imsz, grayscale=False, save=None):
+def read_ims(directory, imsz, grayscale=False):
   ''' Reads in images in subdirectories located in directory and 
       assigns a unique one-hot vector to each image in the respective
       folder.
@@ -35,21 +35,22 @@ def read_ims(directory, imsz, grayscale=False, save=None):
   im_num=0  
 
   for f in os.listdir(os.getcwd()):
-    print('Folder name: %s'%(f))
-    os.chdir(f)
-    r0=np.argmin(np.sum(labels, axis=1))
-    c0=np.argmin(np.sum(labels, axis=0))
-    labels[r0:r0+len(glob.glob1(os.getcwd(), '*')), c0]=1
+    if os.path.isdir(f):
+        print('Folder name: %s'%(f))
+        os.chdir(f)
+        r0=np.argmin(np.sum(labels, axis=1))
+        c0=np.argmin(np.sum(labels, axis=0))
+        labels[r0:r0+len(glob.glob1(os.getcwd(), '*')), c0]=1
 
-    for filename in os.listdir(os.getcwd()):
-      print(filename)
-      im=imresize(imread(filename), [imsz, imsz])
-      if im.ndim!=num_channels:
-        print('Check %s file, wrong size'%(filename))
-        sys.exit(0)
-      imgs[im_num, :, :, :]=im
-      im_num+=1
-    os.chdir(directory)
+        for filename in os.listdir(os.getcwd()):
+          print(filename)
+          im=imresize(imread(filename), [imsz, imsz])
+          if im.ndim!=num_channels:
+            print('Check %s file, wrong size'%(filename))
+            sys.exit(0)
+          imgs[im_num, :, :, :]=im
+          im_num+=1
+        os.chdir(directory)
   os.chdir(main_dir)
   if save is not None:
     f=h5py.File(save[0], 'a')
