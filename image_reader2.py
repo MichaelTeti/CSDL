@@ -39,8 +39,8 @@ def read_ims(directory, imsz, whitening=False):
           #print(filename)
           im=imresize(imread(filename), [imsz, imsz])
           if whitening is True:
-            im=whiten(scale(im, axis=0, with_mean=True, with_std=True, copy=True))
-            im=im[:, :, np.newaxis]
+            im=whiten(scale(im.flatten()))
+            im=im.reshape([imsz, imsz, 1])
           imgs[im_num, :, :, :]=im
           if im.shape[2]!=num_channels:
             print('Check %s file, wrong size'%(filename))
