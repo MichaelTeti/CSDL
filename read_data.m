@@ -8,11 +8,12 @@ fread(fid,4,'uchar'); % result = [236 94 0 0], dim0 = 24300 (=94*256+236)
 fread(fid,4,'uchar'); % result = [2 0 0 0], dim1 = 2
 fread(fid,4,'uchar'); % result = [96 0 0 0], dim2 = 96
 fread(fid,4,'uchar'); % result = [96 0 0 0], dim3 = 96
-a=fread(fid, 24300*96*96);
-data=zeros(24300, 96, 96);
-imsz=96*96;
+a=fread(fid, 24300*96*96*2);
+data=zeros(24300, 96*96*2);
+imsz=96*96*2;
 
 for i=1:24300
-    data(i, :, :)=imrotate(reshape(a(i*imsz-(imsz-1):i*imsz), 96, 96), 270);    
-    
+    data(i, :)=a(i*imsz-(imsz-1):i*imsz);        
 end 
+
+end
