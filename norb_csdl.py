@@ -10,17 +10,6 @@ import h5py
 m=4608
 
 
-def weights(shape, varname):
-    return tf.Variable(tf.truncated_normal(shape, stddev=0.01), name=varname)
-
-def biases(shape, varname):
-    return tf.Variable(tf.constant(0.0, shape=shape), name=varname)
-
-def get_batch(data, labels, batch_size):
-    rand=np.random.randint(0, data.shape[0], batch_size)
-    return data[rand, :], labels[rand, :]
-
-
 # Data loading and preprocessing
 # X=np.loadtxt('mnist_train.csv', delimiter=',')
 # Y=np.zeros([X.shape[0], 10])
